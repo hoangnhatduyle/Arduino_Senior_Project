@@ -1,87 +1,64 @@
-#include <pcmConfig.h>
-#include <pcmRF.h>
-#include <TMRpcm.h>
+#include <SD.h>                      // need to include the SD library
+//#define SD_ChipSelectPin 53  //example uses hardware SS pin 53 on Mega2560
+#define SD_ChipSelectPin 4  //using digital pin 4 on arduino nano 328, can use other pins
+#include <TMRpcm.h>           //  also need to include this library...
 #include <SPI.h>
-#include <SD.h>
-#include <iostream>
-#include <list>
-#define SD_ChipSelectPin 4
-TMRpcm tmrpcm;
 
-using namespace std;
+TMRpcm tmrpcm;   // create an object for use in this sketch
 
-File root;
+unsigned long time = 0;
 
-list<string> mylist;
+void setup(){
 
-// string audio[5] = { //initialize as a global
-//   "audio1.wav",
-//   'audio2.wav',
-//   'audio3.wav',
-//   'audio4.wav',
-//   'audio5.wav'
-// };
-
-void setup() {
-  // This code is to setup the program and verify if the SD pin is read correctly
+  tmrpcm.speakerPin = 9; //5,6,11 or 46 on Mega, 9 on Uno, Nano, etc
+  //Complimentary Output or Dual Speakers:
+  //pinMode(10,OUTPUT); Pin pairs: 9,10 Mega: 5-2,6-7,11-12,46-45 
+  
   Serial.begin(9600);
-  while (!Serial) {
-  ; // wait for serial port to connect. Needed for native USB port only
+  pinMode(13,OUTPUT); //LED Connected to analog pin 0
+  if (!SD.begin(SD_ChipSelectPin)) {  // see if the card is present and can be initialized:
+    Serial.println("SD fail");  
+    return;   // don't do anything more if not
+
   }
-  Serial.print("Initializing SD card...");
-
-  tmrpcm.speakerPin=9;
-  if(!SD.begin(SD_ChipSelectPin)){
-    Serial.println("initialization failed. Things to check:");
-
-    Serial.println("1. is a card inserted?");
-
-    Serial.println("2. is your wiring correct?");
-
-    Serial.println("3. did you change the chipSelect pin to match your shield or module?");
-
-    Serial.println("Note: press reset or reopen this serial monitor after fixing your issue!");
-
-    while (true);
+  else{   
+    Serial.println("SD ok");   
   }
-  Serial.println("initialization done.");
-  root = SD.open("/");
-  tmrpcm.setVolume(5);
+  tmrpcm.setVolume(7);
+  tmrpcm.play("music.wav"); //the sound file "music" will play each time the arduino powers up, or is reset
+  Serial.println(tmrpcm.isPlaying() + " test 1 clear");
+}
 
-  /*
-    initialize SD card here? -- open and read SD
-    after SD card is open, search for file
-    if file is located, playback the audio
-    timeout when complete and return
-  */
-  while (true) {
-    File entry =  root.openNextFile();
-    if (! entry) {
-      // no more files
-      break;
+
+
+void loop(){  
+
+  //blink the LED manually to demonstrate music playback is independant of main loop
+  //Serial.println(tmrpcm.isPlaying() + " test 2 clear");
+  if(tmrpcm.isPlaying() && millis() - time > 50 ) {      
+      digitalWrite(13,!digitalRead(13));
+      time = millis();    
+  }else
+  if(millis() - time > 500){     
+    digitalWrite(13,!digitalRead(13)); 
+    time = millis(); 
+  }
+
+
+  if(Serial.available()){    
+    switch(Serial.read()){
+    case 'd': tmrpcm.play("music"); break;
+    case 'P': tmrpcm.play("temple"); break;
+    case 't': tmrpcm.play("catfish"); break;
+    case 'p': tmrpcm.pause(); break;
+    case '?': if(tmrpcm.isPlaying()){ Serial.println("A wav file is being played");} break;
+    case 'S': tmrpcm.stopPlayback(); break;
+    case '=': tmrpcm.volume(1); break;
+    case '-': tmrpcm.volume(0); break;
+    case '0': tmrpcm.quality(0); break;
+    case '1': tmrpcm.quality(1); break;
+    default: break;
     }
-    
-    mylist.push_back(entry.name());
-    entry.close();
   }
+
 }
-
-void play() {
-  string fileName;
-  tmrpcm.stopPlayback();
-  for (it = mylist.begin(); it != mylist.end(); it++)
-  {
-    // Access the object through iterator
-    fileName = it;
-    tmrpcm.play(fileName);    //file name has to be in wav format
-    delay(3000);
-  }
-  return;
-}
-
-void loop() {
-  play();
-}
-
-
-
